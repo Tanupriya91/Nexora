@@ -2,3 +2,5 @@ packages:
   - "frontend"
   - "backend/*"
   - "packages/*"
+allowBuilds:
+  unrs-resolver: false
