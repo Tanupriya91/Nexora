@@ -1,0 +1,256 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+  GUEST
+}
+
+enum PageType {
+  DOCUMENT
+  DATABASE
+  DATABASE_ROW
+}
+
+enum Permission {
+  VIEW
+  EDIT
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ownedWorkspaces Workspace[]         @relation("WorkspaceOwner")
+  memberships     WorkspaceMembership[]
+  createdPages    Page[]              @relation("PageCreator")
+  uploadedFiles   FileAsset[]
+  versions        Version[]
+  comments        Comment[]
+  templates       Template[]
+  permissionGrants PermissionGrant[]
+  notifications   Notification[]
+}
+
+model Workspace {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner        User                @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  memberships  WorkspaceMembership[]
+  pages        Page[]
+  databases    Database[]
+  relations    Relation[]
+  files        FileAsset[]
+  comments     Comment[]
+  templates    Template[]
+  permissions  PermissionGrant[]
+  notifications Notification[]
+}
+
+model WorkspaceMembership {
+  id          String        @id @default(uuid())
+  userId      String
+  workspaceId String
+  role        WorkspaceRole @default(MEMBER)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id])
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@unique([userId, workspaceId])
+}
+
+model Page {
+  id          String   @id @default(uuid())
+  workspaceId String
+  parentId    String?
+  title       String
+  type        PageType @default(DOCUMENT)
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  parent    Page?     @relation("PageHierarchy", fields: [parentId], references: [id])
+  children  Page[]    @relation("PageHierarchy")
+  createdBy User       @relation("PageCreator", fields: [createdById], references: [id])
+
+  blocks       Block[]
+  database     Database?
+  sourceRelations Relation[] @relation("RelationSource")
+  targetRelations Relation[] @relation("RelationTarget")
+  comments     Comment[]
+  versions     Version[]
+  permissions  PermissionGrant[]
+
+  @@index([workspaceId])
+  @@index([parentId])
+}
+
+model Block {
+  id        String   @id @default(uuid())
+  pageId    String
+  parentId  String?
+  type      String
+  content   Json
+  position  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  page     Page    @relation(fields: [pageId], references: [id])
+  parent   Block?  @relation("BlockHierarchy", fields: [parentId], references: [id])
+  children Block[] @relation("BlockHierarchy")
+
+  @@index([pageId, position])
+  @@index([parentId])
+}
+
+model Database {
+  id          String   @id @default(uuid())
+  pageId      String   @unique
+  workspaceId String
+  name        String
+  schema      Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  page      Page      @relation(fields: [pageId], references: [id])
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@index([workspaceId])
+}
+
+model Relation {
+  id          String   @id @default(uuid())
+  workspaceId String
+  sourcePageId String
+  targetPageId String
+  type        String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  sourcePage Page      @relation("RelationSource", fields: [sourcePageId], references: [id])
+  targetPage Page      @relation("RelationTarget", fields: [targetPageId], references: [id])
+
+  @@index([workspaceId])
+  @@index([sourcePageId])
+  @@index([targetPageId])
+}
+
+model FileAsset {
+  id           String   @id @default(uuid())
+  workspaceId  String
+  uploadedById String
+  name         String
+  storageKey   String
+  mimeType     String
+  size         BigInt
+  url          String?
+  createdAt    DateTime @default(now())
+
+  workspace  Workspace @relation(fields: [workspaceId], references: [id])
+  uploadedBy User      @relation(fields: [uploadedById], references: [id])
+
+  @@index([workspaceId])
+}
+
+model Version {
+  id          String   @id @default(uuid())
+  pageId      String
+  createdById String
+  snapshot    Json
+  createdAt   DateTime @default(now())
+
+  page      Page @relation(fields: [pageId], references: [id])
+  createdBy User @relation(fields: [createdById], references: [id])
+
+  @@index([pageId, createdAt])
+}
+
+model Comment {
+  id          String   @id @default(uuid())
+  workspaceId String
+  pageId      String
+  blockId     String?
+  authorId    String
+  content     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  page      Page      @relation(fields: [pageId], references: [id])
+  author    User      @relation(fields: [authorId], references: [id])
+
+  @@index([pageId])
+  @@index([blockId])
+}
+
+model Template {
+  id          String   @id @default(uuid())
+  workspaceId String
+  createdById String
+  name        String
+  description String?
+  content     Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  createdBy User      @relation(fields: [createdById], references: [id])
+
+  @@index([workspaceId])
+}
+
+model PermissionGrant {
+  id          String     @id @default(uuid())
+  workspaceId String
+  pageId      String?
+  userId      String
+  permission  Permission
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  page      Page?     @relation(fields: [pageId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@unique([pageId, userId, permission])
+  @@index([workspaceId])
+  @@index([userId])
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  workspaceId String
+  userId      String
+  type        String
+  data        Json
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([userId, readAt])
+  @@index([workspaceId])
+}
