@@ -26,24 +26,26 @@ enum Permission {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String?
-  avatarUrl String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(uuid())
+  email         String   @unique
+  name          String?
+  emailVerified DateTime?
+  image         String?
+  avatarUrl     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  ownedWorkspaces Workspace[]         @relation("WorkspaceOwner")
+  ownedWorkspaces Workspace[]          @relation("WorkspaceOwner")
   memberships     WorkspaceMembership[]
-  createdPages    Page[]              @relation("PageCreator")
+  createdPages    Page[]               @relation("PageCreator")
   uploadedFiles   FileAsset[]
   versions        Version[]
   comments        Comment[]
   templates       Template[]
   permissionGrants PermissionGrant[]
   notifications   Notification[]
-  accounts Account[]
-  sessions Session[]
+  accounts        Account[]
+  sessions        Session[]
 }
 
 model Workspace {
