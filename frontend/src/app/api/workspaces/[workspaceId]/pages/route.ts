@@ -8,6 +8,76 @@ type PageRouteProps = {
   }>
 }
 
+export async function GET(
+  _request: Request,
+  { params }: PageRouteProps
+) {
+  const session = await auth()
+
+  if (!session?.user?.email) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    )
+  }
+
+  const { workspaceId } = await params
+
+  const user = await prisma.user.findUnique({
+    where: {
+      email: session.user.email,
+    },
+    select: {
+      id: true,
+    },
+  })
+
+  if (!user) {
+    return NextResponse.json(
+      { error: "User not found" },
+      { status: 404 }
+    )
+  }
+
+  const membership = await prisma.workspaceMembership.findUnique({
+    where: {
+      userId_workspaceId: {
+        userId: user.id,
+        workspaceId,
+      },
+    },
+  })
+
+  if (!membership) {
+    return NextResponse.json(
+      { error: "Workspace not found" },
+      { status: 404 }
+    )
+  }
+
+  const pages = await prisma.page.findMany({
+    where: {
+      workspaceId,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+    select: {
+      id: true,
+      workspaceId: true,
+      parentId: true,
+      title: true,
+      type: true,
+      createdById: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  })
+
+  return NextResponse.json(pages)
+}
+
+
 export async function POST(
   request: Request,
   { params }: PageRouteProps
